@@ -1,0 +1,28 @@
+# Example only: copy to deploy.yml and configure the repository secret below.
+# This triggers a deployment webhook (for example, a Render deploy hook) after CI passes.
+name: Example deployment webhook
+
+on:
+  workflow_dispatch:
+  workflow_run:
+    workflows: ["Forecasting CI"]
+    types: [completed]
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  deploy:
+    if: github.event_name == 'workflow_dispatch' || (github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.head_branch == 'main')
+    runs-on: ubuntu-latest
+    steps:
+      - name: Trigger hosting provider deployment
+        env:
+          DEPLOY_HOOK_URL: ${{ secrets.DEPLOY_HOOK_URL }}
+        run: |
+          if [ -z "$DEPLOY_HOOK_URL" ]; then
+            echo "Missing DEPLOY_HOOK_URL secret; configure it in repository settings."
+            exit 1
+          fi
+          curl --fail --silent --show-error --request POST "$DEPLOY_HOOK_URL"

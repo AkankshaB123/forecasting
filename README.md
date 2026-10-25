@@ -1,20 +1,42 @@
 # Forecasting MLOps — AI Forecast Review
 
-A Streamlit dashboard for comparing time-series forecasting models, reviewing chronological holdout metrics, plotting forecasts, and exporting results. Includes a GitHub Actions CI workflow and a Docker image build.
+A modular Streamlit dashboard for comparing time-series forecasting models, reviewing chronological holdout metrics, plotting forecasts, and exporting results. GitHub Actions validates code and tests on pull requests and pushes, then builds a Docker image in CI.
 
-## 🚀 Streamlit dashboard
+## Live dashboard
 
 **[Open the live forecasting dashboard](https://akankshab123-forecasting-app-cd6xcn.streamlit.app/)**
 
 ## Features
 
-- Upload a CSV or try the embedded synthetic sample data.
+- Upload a CSV or try deterministic synthetic monthly sample data.
 - Select date and target columns; configure holdout length, forecast horizon, and seasonal period.
 - Compare Naive, ARIMA, SARIMA, SARIMAX, Prophet, and optional CNN models.
 - Review MAE, RMSE, WAPE, and sMAPE on a chronological holdout.
-- Plot historical data, holdout predictions, and future forecasts.
-- Download forecast and metric CSVs.
-- GitHub Actions checks Python syntax, runs tests, and builds a Docker image.
+- Plot history, holdout predictions, and future forecasts; download CSV outputs.
+- Automated CI for Python 3.11/3.12, unit tests, and Docker image build.
+
+## Repository structure
+
+Legacy exploratory notebooks are kept separately in `EDA/`; the Streamlit app and reusable forecasting package remain at the project root and under `src/`.
+
+```text
+.
+├── EDA/  # Legacy exploratory analysis and forecasting notebooks
+├── app.py
+├── src/forecasting/
+│   ├── __init__.py
+│   ├── data.py
+│   └── engine.py
+├── tests/
+│   ├── test_data.py
+│   └── test_metrics.py
+├── .github/workflows/
+│   ├── ci.yml
+│   └── deploy.yml.example
+├── Dockerfile
+├── requirements.txt
+└── pyproject.toml
+```
 
 ## Quick start
 
@@ -26,14 +48,13 @@ cd forecasting
 python -m venv .venv
 # Linux/macOS:
 source .venv/bin/activate
-# Windows PowerShell:
-# .venv\Scripts\Activate.ps1
+# Windows PowerShell: .venv\\Scripts\\Activate.ps1
 python -m pip install --upgrade pip
-pip install -r requirements.txt
+pip install -r requirements.txt -e .
 streamlit run app.py
 ```
 
-The dashboard starts with a synthetic monthly series. To use your own data, upload a CSV containing a date/time column and a numeric target, for example:
+Upload a CSV containing a date/time column and a numeric target, e.g.:
 
 ```csv
 date,value
@@ -42,62 +63,36 @@ date,value
 2024-03-01,131.2
 ```
 
-Choose the appropriate columns and settings in the sidebar, then select **Run forecast review**. Use synthetic data only to smoke-test the UI, not for business decisions.
+The data preparation layer parses dates and numeric values, drops invalid rows, sorts observations, and keeps the last row for duplicate dates. The application requires enough observations for the selected holdout.
 
-## Models
+## Models and evaluation
 
 | Model | Implementation | Notes |
 |---|---|---|
-| Naive | Repeats the last training observation | Baseline for comparison |
-| ARIMA | statsmodels ARIMA(1,1,1) | Fixed starter order; tune for the series |
-| SARIMA | Seasonal ARIMA via statsmodels | Uses the selected seasonal period |
-| SARIMAX | statsmodels SARIMAX with seasonal terms | No external regressors are configured in this starter |
-| Prophet | Prophet trend and automatic yearly seasonality | Optional runtime dependency; needs sufficient history |
-| CNN | Small 1D convolutional neural network | Optional TensorFlow dependency; install with `pip install "tensorflow>=2.15,<3"` |
+| Naive | Repeats the last training observation | Baseline |
+| ARIMA | statsmodels ARIMA(1,1,1) | Fixed starter order |
+| SARIMA | Seasonal SARIMAX model | Selected seasonal period, bounded by history length |
+| SARIMAX | statsmodels SARIMAX with seasonal terms | No external regressors configured |
+| Prophet | Prophet trend and automatic yearly seasonality | Optional at runtime; needs sufficient history |
+| CNN | Small 1D convolutional network | Optional TensorFlow dependency; install with `pip install "tensorflow>=2.15,<3"` |
 
-Optional models that fail to import or fit are reported in the metrics table instead of being assigned fabricated results. The current model parameters are baselines, not automatically tuned production models.
+Metrics are evaluated on the latest chronological holdout: MAE and RMSE are in target units; WAPE and sMAPE are percentages and need careful interpretation when actuals are near zero. Model parameters are baselines, not automatically tuned production models. Use rolling-origin backtests and business-specific metrics before production decisions.
 
-## Evaluation and workflow
+## CI/CD
 
-The latest contiguous observations are held out from training. Metrics are calculated only on this holdout:
+- **CI**: `.github/workflows/ci.yml` runs on pull requests and pushes. It installs the package, compiles Python files, runs unit tests across Python 3.11 and 3.12, and builds a Docker image.
+- **CD example**: `.github/workflows/deploy.yml.example` is intentionally disabled as a workflow because GitHub Actions only executes YAML files ending in `.yml` or `.yaml`. To use it with a compatible hosting provider, copy it to `.github/workflows/deploy.yml`, add a repository Actions secret named `DEPLOY_HOOK_URL`, and adjust the trigger/provider as needed.
+- The deployment example triggers a hosting-provider webhook only after a successful CI run on `main` (or manually). It does not deploy the Streamlit Community Cloud app automatically; that service normally deploys from its connected GitHub repository.
 
-- **MAE**: mean absolute error, in target units.
-- **RMSE**: root mean squared error, penalizes larger misses.
-- **WAPE**: weighted absolute percentage error; unstable when actual totals are near zero.
-- **sMAPE**: symmetric percentage-style error; interpret carefully around zero.
-
-The current dashboard uses one chronological holdout and fixed starter configurations. Before production use, add rolling-origin cross-validation, seasonal-naive baselines, business-specific metrics, data-quality contracts, drift monitoring, and model/version tracking. Do not select a production model using a single score alone.
-
-### CI/CD
-
-Workflow: [`.github/workflows/ci.yml`](.github/workflows/ci.yml)
-
-On pushes to `main`, feature/fix branches, pull requests to `main`, and manual dispatch, GitHub Actions installs dependencies, checks Python syntax, runs tests, and builds the Docker image. This workflow does **not** publish a container image or deploy the live app automatically.
-
-### Docker
+## Docker
 
 ```bash
-docker build -t forecasting-mlops .
-docker run --rm -p 8501:8501 forecasting-mlops
+docker build -t forecasting-app .
+docker run --rm -p 8501:8501 forecasting-app
 ```
 
-Open http://localhost:8501. The container runs as a non-root user and includes a Streamlit health check.
-
-## Repository layout
-
-```text
-.
-├── app.py
-├── requirements.txt
-├── Dockerfile
-├── .streamlit/config.toml
-├── tests/test_metrics.py
-└── .github/workflows/ci.yml
-```
+Open http://localhost:8501. The image uses a non-root user and includes a Streamlit health check.
 
 ## Limitations and data handling
 
-- Univariate starter dashboard; no persistent model registry, scheduled retraining, calibrated prediction intervals, or external regressors are configured.
-- Forecast quality depends on data quality, seasonal structure, and parameter choices. Validate with representative historical backtests before acting on predictions.
-- Do not upload sensitive or personally identifiable data to an unapproved public app. Configure access controls and review your organization's data-retention requirements before deployment.
-- Add the license appropriate for your project.
+This is a starter dashboard: no model registry, scheduled retraining, drift monitoring, prediction intervals, or external regressors are configured. Validate with representative data before acting on forecasts. Do not upload sensitive or personally identifiable data to an unapproved public app; review access controls and retention requirements before deployment.
