@@ -4,7 +4,7 @@ WORKDIR /app
 RUN useradd --create-home --uid 10001 appuser
 COPY pyproject.toml requirements.txt ./
 COPY src ./src
-RUN python -m pip install --upgrade pip && pip install -r requirements.txt .
+RUN python -m pip install --upgrade pip && pip install -r requirements.txt
 COPY app.py ./
 USER appuser
 EXPOSE 8501
