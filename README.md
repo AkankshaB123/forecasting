@@ -4,9 +4,7 @@ A Streamlit dashboard for comparing time-series forecasting models, reviewing ch
 
 ## 🚀 Streamlit dashboard
 
-**[Deploy / open this app on Streamlit Community Cloud](https://share.streamlit.io/deploy?repository=AkankshaB123%2Fforecasting&branch=main&mainModule=app.py)**
-
-This link opens Streamlit Community Cloud's deployment flow for this repository. The public `.streamlit.app` URL is assigned by Streamlit after the app is deployed; it cannot be truthfully linked until that deployment has been completed. Once deployed, add the assigned public URL here as the live dashboard link.
+**[Open the live forecasting dashboard](https://akankshab123-forecasting-app-cd6xcn.streamlit.app/)**
 
 ## Features
 
