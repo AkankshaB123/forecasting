@@ -32,6 +32,24 @@ jobs:
         run: python -m compileall -q app.py src tests
       - name: Run unit tests
         run: pytest
+      - name: Smoke-test Streamlit startup
+        run: |
+          streamlit run app.py --server.address 127.0.0.1 --server.port 8501 --server.headless true > /tmp/streamlit.log 2>&1 &
+          STREAMLIT_PID=$!
+          trap 'kill "$STREAMLIT_PID" 2>/dev/null || true' EXIT
+          for attempt in $(seq 1 30); do
+            if python -c "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8501/_stcore/health', timeout=2)" 2>/dev/null; then
+              echo "Streamlit health endpoint responded."
+              exit 0
+            fi
+            if ! kill -0 "$STREAMLIT_PID" 2>/dev/null; then
+              cat /tmp/streamlit.log
+              exit 1
+            fi
+            sleep 2
+          done
+          cat /tmp/streamlit.log
+          exit 1
       - name: Build Docker image
         if: matrix.python-version == '3.11'
         run: docker build --tag forecasting-app:${{ github.sha }} .
