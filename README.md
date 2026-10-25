@@ -17,8 +17,11 @@ A modular Streamlit dashboard for comparing time-series forecasting models, revi
 
 ## Repository structure
 
+Legacy exploratory notebooks are kept separately in `EDA/`; the Streamlit app and reusable forecasting package remain at the project root and under `src/`.
+
 ```text
 .
+├── EDA/  # Legacy exploratory analysis and forecasting notebooks
 ├── app.py
 ├── src/forecasting/
 │   ├── __init__.py
