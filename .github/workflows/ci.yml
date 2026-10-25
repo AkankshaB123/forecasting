@@ -1,8 +1,8 @@
-name: Forecasting CI/CD
+name: Forecasting CI
 
 on:
   push:
-    branches: [main, "feat/**", "fix/**"]
+    branches: [main, "feat/**", "fix/**", "refactor/**"]
   pull_request:
     branches: [main]
   workflow_dispatch:
@@ -24,14 +24,14 @@ jobs:
           python-version: ${{ matrix.python-version }}
           cache: pip
           cache-dependency-path: requirements.txt
-      - name: Install dependencies
+      - name: Install project and test dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install -r requirements.txt pytest
-      - name: Syntax check
-        run: python -m compileall -q app.py
-      - name: Run tests
-        run: pytest -q
+          pip install -r requirements.txt -e . pytest
+      - name: Compile application and package
+        run: python -m compileall -q app.py src tests
+      - name: Run unit tests
+        run: pytest
       - name: Build Docker image
         if: matrix.python-version == '3.11'
-        run: docker build -t forecasting-app:${{ github.sha }} .
+        run: docker build --tag forecasting-app:${{ github.sha }} .
